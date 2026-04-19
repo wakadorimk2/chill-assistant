@@ -67,3 +67,6 @@ backend/trained_models/zombie_detector_v2/*
 # YOLOv8のラベルファイル（train/val）を無視
 backend/data/datasets/yolov8/labels/train/*.txt
 backend/data/datasets/yolov8/labels/val/*.txt
+
+# Claudeのローカル設定ファイル
+*.local.json
