@@ -34,8 +34,8 @@ export default defineConfig({
       overlay: false, // HMRオーバーレイを無効化（Electronウィンドウで表示崩れを防ぐ）
       protocol: 'ws',
       host: 'localhost',
-      port: 5173,
-      clientPort: 5173,
+      port: 5174,
+      clientPort: 5174,
       timeout: 5000
     }
   },
