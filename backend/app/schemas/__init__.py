@@ -10,8 +10,6 @@ from .events import (
     EventType,
     PlayerStatusEvent,
     SystemEvent,
-    ThreatLevel,
-    ZombieDetectedEvent,
 )
 from .voice import VoiceSynthesisRequest
 
@@ -21,8 +19,6 @@ __all__ = [
     "EventModel",
     "BaseEvent",
     "EventType",
-    "ThreatLevel",
-    "ZombieDetectedEvent",
     "PlayerStatusEvent",
     "ErrorEvent",
     "SystemEvent",

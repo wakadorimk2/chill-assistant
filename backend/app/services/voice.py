@@ -7,11 +7,10 @@ VOICEVOXを使用したテキスト音声合成と再生機能を提供します
 import json
 import logging
 import os
-import random
 import subprocess
 import threading
 import time
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 import requests
 
@@ -95,49 +94,6 @@ class VoiceService:
         self.settings = get_settings()
         self.voice_lock = _playback_state.voice_lock
 
-    def get_random_dialogue(
-        self, dialogue_type: str, subtype: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
-        """
-        指定されたタイプからランダムなセリフを取得
-
-        Args:
-            dialogue_type: 対話タイプ（例: "zombie_detection"）
-            subtype: サブタイプ（例: "few", "many"）
-
-        Returns:
-            Dict: セリフデータの辞書、見つからない場合はNone
-        """
-        # 対話データの読み込み
-        dialogues = self.settings.load_dialogues("zombie_detection.json")
-
-        # 対話タイプが存在するか確認
-        if dialogue_type not in dialogues:
-            logger.warning(f"対話タイプが見つかりません: {dialogue_type}")
-            return None
-
-        dialogue_data = dialogues[dialogue_type]
-
-        # サブタイプが指定されていて、存在する場合
-        if subtype and isinstance(dialogue_data, dict) and subtype in dialogue_data:
-            dialogue_list = dialogue_data[subtype]
-        # サブタイプがなく、直接リストの場合
-        elif isinstance(dialogue_data, list):
-            dialogue_list = dialogue_data
-        else:
-            logger.warning(
-                f"指定された対話データが見つかりません: {dialogue_type}/{subtype}"
-            )
-            return None
-
-        # リストが空でないことを確認
-        if not dialogue_list:
-            logger.warning(f"対話リストが空です: {dialogue_type}/{subtype}")
-            return None
-
-        # ランダムに選択
-        return random.choice(dialogue_list)
-
     def safe_play_voice(
         self,
         text: str,
@@ -199,51 +155,6 @@ class VoiceService:
         except Exception as e:
             logger.error(f"音声再生エラー: {e}")
             return None
-
-    def play_dialogue(
-        self,
-        dialogue_type: str,
-        subtype: Optional[str] = None,
-        force: bool = False,
-        message_type: Optional[str] = None,
-    ) -> Optional[str]:
-        """
-        対話データから選択したセリフを再生
-
-        Args:
-            dialogue_type: 対話タイプ
-            subtype: サブタイプ
-            force: 強制再生フラグ
-            message_type: メッセージタイプ（デフォルトはdialogue_type）
-
-        Returns:
-            wav_path: 生成されたWAVファイルのパス、エラー時はNone
-        """
-        # 対話データの取得
-        dialogue = self.get_random_dialogue(dialogue_type, subtype)
-        if not dialogue:
-            logger.warning(f"対話データが取得できません: {dialogue_type}/{subtype}")
-            return None
-
-        # メッセージタイプが指定されていなければ、対話タイプを使用
-        if message_type is None:
-            message_type = f"{dialogue_type}_{subtype}" if subtype else dialogue_type
-
-        # 音声設定の取得
-        emotion = dialogue.get("emotion", "にこにこ")
-        voice_preset = self.settings.VOICE_PRESETS.get(
-            emotion, {"pitch": 0.0, "intonation": 1.0, "speed": 1.0}
-        )
-
-        # 音声再生
-        return self.safe_play_voice(
-            text=dialogue["text"],
-            speed=voice_preset.get("speed", 1.0),
-            pitch=voice_preset.get("pitch", 0.0),
-            intonation=voice_preset.get("intonation", 1.0),
-            force=force,
-            message_type=message_type,
-        )
 
     def _speak(
         self,

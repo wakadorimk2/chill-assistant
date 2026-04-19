@@ -14,7 +14,6 @@ from .engine import (
 )
 from .player import play_voice, play_voice_async, reset_audio_playback
 from .presets import safe_speak_with_preset, speak_with_preset
-from .react import legacy_react_to_zombie, react_to_zombie
 from .voicevox_starter import (
     cleanup_on_exit,
     is_voicevox_ready,
@@ -37,8 +36,6 @@ __all__ = [
     "reset_audio_playback",
     "speak_with_preset",
     "safe_speak_with_preset",
-    "react_to_zombie",
-    "legacy_react_to_zombie",
     # voicevox_starter関連
     "is_voicevox_ready",
     "is_voicevox_running",

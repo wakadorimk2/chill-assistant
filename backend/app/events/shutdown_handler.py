@@ -27,10 +27,7 @@ async def on_shutdown() -> None:
         return
 
     try:
-        # ゾンビ監視の停止
-        await stop_zombie_monitoring()
-
-        # その他のクリーンアップ処理
+        # クリーンアップ処理
         await cleanup_resources()
 
         _shutdown_complete = True
@@ -38,25 +35,6 @@ async def on_shutdown() -> None:
 
     except Exception as e:
         logger.error(f"シャットダウン処理中にエラーが発生: {e}")
-
-
-async def stop_zombie_monitoring() -> None:
-    """
-    ゾンビ検出の監視を停止
-    """
-    try:
-        from ..modules.zombie.service import get_zombie_service
-
-        # ゾンビサービスが利用可能なら監視を停止
-        try:
-            zombie_service = get_zombie_service()
-            await zombie_service.stop_monitoring()
-            logger.info("ゾンビ監視を停止しました")
-        except ImportError:
-            logger.warning("ゾンビサービスが利用できません")
-
-    except Exception as e:
-        logger.error(f"ゾンビ監視の停止中にエラーが発生: {e}")
 
 
 async def cleanup_resources() -> None:

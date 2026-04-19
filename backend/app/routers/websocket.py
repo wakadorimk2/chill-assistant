@@ -5,47 +5,13 @@ WebSocket接続とリアルタイム通信を管理するエンドポイント
 """
 
 import logging
-import os
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ..ws.manager import manager
 
-# ロガー設定
 logger = logging.getLogger(__name__)
 
-
-# モック関数を実際のゾンビ監視状態を返す関数に変更
-def is_monitoring_started() -> bool:
-    """ゾンビ監視が開始されているかどうかを返す"""
-    # 環境変数で機能が無効化されている場合
-    is_zombie_detection_enabled = os.environ.get(
-        "ZOMBIE_DETECTION_ENABLED", "false"
-    ).lower() in ["true", "1", "yes"]
-    if not is_zombie_detection_enabled:
-        logger.debug(
-            "ゾンビ検出機能は無効化されています。監視状態は常にfalseを返します。"
-        )
-        return False
-
-    try:
-        from ..modules.zombie.service import get_zombie_service
-
-        # ゾンビサービスからモニタリング状態を取得
-        service = get_zombie_service()
-        # 監視タスクが存在するかどうかで判定
-        return service.monitoring_task is not None
-    except ImportError:
-        logger.warning(
-            "ゾンビサービスモジュールがインポートできません。モニタリングは無効です。"
-        )
-        return False
-    except Exception as e:
-        logger.error(f"ゾンビ監視状態の確認中にエラー: {str(e)}")
-        return False
-
-
-# ルーター作成
 router = APIRouter()
 
 
@@ -57,222 +23,34 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     """
     await manager.connect(websocket)
     try:
-        # 接続成功メッセージを送信
         await manager.send_personal_message(
             {"type": "system", "data": {"message": "WebSocket接続が確立されました。"}},
             websocket,
         )
 
-        # 現在の監視状態を送信
-        status_data = {
-            "type": "status",
-            "data": {
-                "monitoring_active": is_monitoring_started(),
-                "server_status": "running",
-            },
-        }
-        await manager.send_personal_message(status_data, websocket)
+        await manager.send_personal_message(
+            {"type": "status", "data": {"server_status": "running"}},
+            websocket,
+        )
 
-        # メッセージ受信ループ
         while True:
             data = await websocket.receive_json()
-
-            # メッセージのタイプに応じた処理
             message_type = data.get("type", "unknown")
 
             if message_type == "ping":
-                # ping-pongメッセージ
                 await manager.send_personal_message(
                     {"type": "pong", "data": {"timestamp": data.get("timestamp", 0)}},
                     websocket,
                 )
             elif message_type == "command":
-                # コマンド処理
                 command = data.get("command", "")
                 if command == "status":
-                    # ステータス取得要求
                     await manager.send_personal_message(
-                        {
-                            "type": "status",
-                            "data": {
-                                "server_status": "running",
-                                "monitoring_active": is_monitoring_started(),
-                            },
-                        },
+                        {"type": "status", "data": {"server_status": "running"}},
                         websocket,
                     )
-                elif command == "start_monitoring":
-                    # 🆕 監視開始要求
-                    # 環境変数で機能が無効化されている場合
-                    is_zombie_detection_enabled = os.environ.get(
-                        "ZOMBIE_DETECTION_ENABLED", "false"
-                    ).lower() in ["true", "1", "yes"]
-                    if not is_zombie_detection_enabled:
-                        logger.info(
-                            "ゾンビ検出機能は無効化されています。監視開始は処理されません。"
-                        )
-                        # 結果を通知
-                        await manager.send_personal_message(
-                            {
-                                "type": "command_result",
-                                "command": "start_monitoring",
-                                "success": False,
-                                "message": "ゾンビ検出機能は現在無効化されています。",
-                            },
-                            websocket,
-                        )
-                        continue
-
-                    try:
-                        from ..modules.zombie.service import get_zombie_service
-
-                        # ゾンビ監視の開始
-                        service = get_zombie_service()
-                        monitoring_task = await service.start_monitoring()
-
-                        success = monitoring_task is not None
-                        message = (
-                            "ゾンビ監視を開始しました"
-                            if success
-                            else "ゾンビ監視の開始に失敗しました"
-                        )
-
-                        # 結果を通知
-                        await manager.send_personal_message(
-                            {
-                                "type": "command_result",
-                                "command": "start_monitoring",
-                                "success": success,
-                                "message": message,
-                            },
-                            websocket,
-                        )
-
-                        # ステータス更新
-                        await manager.send_personal_message(
-                            {
-                                "type": "status",
-                                "data": {
-                                    "server_status": "running",
-                                    "monitoring_active": is_monitoring_started(),
-                                },
-                            },
-                            websocket,
-                        )
-
-                        # 全クライアントに通知
-                        if success:
-                            await manager.broadcast(
-                                {
-                                    "type": "notification",
-                                    "data": {
-                                        "messageType": "system",
-                                        "message": "ゾンビ監視が開始されました。",
-                                    },
-                                }
-                            )
-
-                            # 監視開始成功のメッセージも送信
-                            await manager.broadcast(
-                                {
-                                    "type": "speak",
-                                    "text": "ゾンビ監視を開始しました。"
-                                    "何か見つけたらお知らせします。",
-                                    "emotion": "happy",
-                                    "display_time": 5000,
-                                }
-                            )
-
-                    except Exception as e:
-                        logger.error(f"ゾンビ監視開始中にエラー: {str(e)}")
-                        await manager.send_personal_message(
-                            {
-                                "type": "command_result",
-                                "command": "start_monitoring",
-                                "success": False,
-                                "message": f"エラー: {str(e)}",
-                            },
-                            websocket,
-                        )
-                elif command == "stop_monitoring":
-                    # 🆕 監視停止要求
-                    # 環境変数で機能が無効化されている場合
-                    is_zombie_detection_enabled = os.environ.get(
-                        "ZOMBIE_DETECTION_ENABLED", "false"
-                    ).lower() in ["true", "1", "yes"]
-                    if not is_zombie_detection_enabled:
-                        logger.info(
-                            "ゾンビ検出機能は無効化されています。監視停止は処理されません。"
-                        )
-                        # 結果を通知
-                        await manager.send_personal_message(
-                            {
-                                "type": "command_result",
-                                "command": "stop_monitoring",
-                                "success": False,
-                                "message": "ゾンビ検出機能は現在無効化されています。",
-                            },
-                            websocket,
-                        )
-                        continue
-
-                    try:
-                        from ..modules.zombie.service import get_zombie_service
-
-                        # ゾンビ監視の停止
-                        service = get_zombie_service()
-                        success = await service.stop_monitoring()
-                        message = (
-                            "ゾンビ監視を停止しました"
-                            if success
-                            else "ゾンビ監視の停止に失敗しました"
-                        )
-
-                        # 結果を通知
-                        await manager.send_personal_message(
-                            {
-                                "type": "command_result",
-                                "command": "stop_monitoring",
-                                "success": success,
-                                "message": message,
-                            },
-                            websocket,
-                        )
-
-                        # ステータス更新
-                        await manager.send_personal_message(
-                            {
-                                "type": "status",
-                                "data": {
-                                    "server_status": "running",
-                                    "monitoring_active": is_monitoring_started(),
-                                },
-                            },
-                            websocket,
-                        )
-
-                        # 全クライアントに通知
-                        if success:
-                            await manager.broadcast(
-                                {
-                                    "type": "notification",
-                                    "data": {
-                                        "messageType": "system",
-                                        "message": "ゾンビ監視が停止されました。",
-                                    },
-                                }
-                            )
-                    except Exception as e:
-                        logger.error(f"ゾンビ監視停止中にエラー: {str(e)}")
-                        await manager.send_personal_message(
-                            {
-                                "type": "command_result",
-                                "command": "stop_monitoring",
-                                "success": False,
-                                "message": f"エラー: {str(e)}",
-                            },
-                            websocket,
-                        )
+                else:
+                    logger.debug(f"未対応のコマンド: {command}")
 
     except WebSocketDisconnect:
         manager.disconnect(websocket)

@@ -114,7 +114,7 @@ async def send_notification(
 
     Args:
         message: 通知メッセージ
-        message_type: 通知タイプ（info, warning, error, success, zombieAlert, fewZombiesAlert, zombieWarning）
+        message_type: 通知タイプ（info, warning, error, success など）
         title: 通知タイトル
         importance: 重要度（normal, high, low）
         skipAudio: 音声読み上げをスキップするかどうか

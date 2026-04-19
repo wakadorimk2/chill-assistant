@@ -13,31 +13,9 @@ from typing import Any, Dict, List, Optional
 class EventType(Enum):
     """イベントタイプの列挙型"""
 
-    ZOMBIE_DETECTED = "zombie_detected"
     PLAYER_STATUS_CHANGED = "player_status_changed"
     ERROR_OCCURRED = "error_occurred"
     SYSTEM_EVENT = "system_event"
-
-
-class ThreatLevel(Enum):
-    """脅威レベルの列挙型"""
-
-    NONE = "none"
-    LOW = "low"  # 警戒 (1-2体)
-    MEDIUM = "medium"  # 危険 (3-7体)
-    HIGH = "high"  # 重大 (8体以上)
-
-
-@dataclass
-class ZombieDetectedEvent:
-    """ゾンビ検出イベント"""
-
-    count: int
-    threat_level: ThreatLevel
-    screenshot_path: Optional[str] = None
-    event_type: EventType = field(default=EventType.ZOMBIE_DETECTED, init=False)
-    timestamp: datetime = field(default_factory=datetime.now)
-    metadata: Optional[Dict[str, Any]] = None
 
 
 @dataclass

@@ -5,7 +5,6 @@ VOICEVOX連携の音声合成および再生に関するエンドポイント
 """
 
 import logging
-import os
 import traceback
 
 import requests
@@ -14,7 +13,6 @@ from starlette.responses import JSONResponse
 
 from ..config import get_settings
 from ..modules.voice.engine import speak_with_emotion, synthesize_direct
-from ..modules.voice.react import react_to_zombie
 from ..schemas import VoiceSynthesisRequest
 
 # ロガー設定
@@ -225,65 +223,6 @@ async def speak_text(request: VoiceSynthesisRequest):
         f"{request.text[:20] if request.text else ''}..."
     )
     return await synthesize_voice(request)
-
-
-@router.post("/api/voice/react_to_zombie")
-async def react_to_zombie_endpoint(
-    count: int = Query(..., description="検出されたゾンビの数"),
-    distance: float = Query(0.0, description="最も近いゾンビとの距離（m）"),
-    force: bool = Query(False, description="クールダウンを無視して強制的に再生するか"),
-):
-    """
-    ゾンビ検出に対する反応を返すエンドポイント
-
-    Args:
-        count: 検出されたゾンビの数
-        distance: 最も近いゾンビとの距離（メートル）
-        force: クールダウンを無視して強制的に再生するか
-    """
-    # 環境変数で機能が無効化されている場合
-    is_zombie_detection_enabled = os.environ.get(
-        "ZOMBIE_DETECTION_ENABLED", "false"
-    ).lower() in ["true", "1", "yes"]
-    if not is_zombie_detection_enabled:
-        logger.info(
-            "ゾンビ検出機能は無効化されています。ゾンビに対する反応は処理されません。"
-        )
-        return {
-            "status": "disabled",
-            "message": "ゾンビ検出機能は現在無効化されています。",
-            "reaction": {
-                "text": "",
-                "emotion": "normal",
-                "speaker_id": settings.VOICEVOX_SPEAKER,
-            },
-        }
-
-    try:
-        logger.info(
-            f"ゾンビ検出リクエスト: count={count}, "
-            f"distance={distance:.1f}, force={force}"
-        )
-
-        # ゾンビ検出時の音声と表情変化を生成
-        # 注: 実際の音声再生はフロントエンド側で行われる
-        reaction_data = react_to_zombie(count, distance, force=force)
-
-        # 成功レスポンス
-        return {
-            "status": "success",
-            "message": "ゾンビ検出反応を生成しました",
-            "reaction": reaction_data,
-        }
-    except Exception as e:
-        logger.error(f"ゾンビ検出反応エラー: {str(e)}")
-        return JSONResponse(
-            status_code=500,
-            content={
-                "status": "error",
-                "message": f"ゾンビ検出反応の生成に失敗しました: {str(e)}",
-            },
-        )
 
 
 @router.post("/api/voice/speak_with_preset")
