@@ -15,6 +15,11 @@ from ..config import get_settings
 from .logger import setup_logger
 
 logger = setup_logger(__name__)
+# モジュール別ロガーにもハンドラを付与して INFO 以上を uvicorn 画面に出す
+# (watcher / events / services 配下の子ロガーがプロパゲーション経由で拾える)
+setup_logger("backend.app.modules.watcher")
+setup_logger("backend.app.events")
+setup_logger("backend.app.services")
 
 
 @asynccontextmanager
