@@ -55,6 +55,8 @@ class Settings(BaseSettings):
     # animating 中でも強い急変があれば再 enqueue する条件
     WATCHER_STRONG_DIFF_MULTIPLIER: float = 2.0
     WATCHER_REENQUEUE_COOLDOWN_SEC: float = 5.0
+    # True で skip も INFO レベルでログ出力 (実機診断用)
+    WATCHER_VERBOSE_LOG: bool = False
 
     VOICE_PRESETS: ClassVar[Dict[str, Dict[str, float]]] = {
         "通常": {"pitch": 0.0, "intonation": 1.0, "speed": 1.0},

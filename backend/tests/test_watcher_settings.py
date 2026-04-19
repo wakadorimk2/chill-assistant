@@ -16,6 +16,7 @@ def test_watcher_settings_defaults() -> None:
     assert s.WATCHER_DIFF_RESIZE_H == 135
     assert s.WATCHER_STRONG_DIFF_MULTIPLIER == 2.0
     assert s.WATCHER_REENQUEUE_COOLDOWN_SEC == 5.0
+    assert s.WATCHER_VERBOSE_LOG is False
 
 
 def test_watcher_settings_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -5,6 +5,7 @@ ScreenWatcher と WindowWatcher を統括する。
 - WatcherEvent の Queue を所有 (Step 3 で companion が consume する)
 - 最新フレームを 1 枚保持 (Step 3 で companion が画像取得用)
 - dispatch で 「Queue put + WebSocket broadcast」 を 1 トランザクションで実施
+- 診断用途で ScreenWatcher インスタンスへの参照を保持し、snapshot / 差分画像を proxy する
 """
 
 import asyncio
@@ -39,6 +40,7 @@ class WatcherService:
         self._current_window_title: Optional[str] = None
         self._tasks: list[asyncio.Task[None]] = []
         self._running: bool = False
+        self._screen_watcher: Optional[ScreenWatcher] = None
 
         # 起動時刻記録 (Step 2 では active/idle 判定に使う簡易フォールバック)
         self._started_at: float = time.time()
@@ -46,7 +48,7 @@ class WatcherService:
     def get_phase(self) -> Literal["active", "idle", "funya"]:
         """現在の動作フェーズ。funya 状態と無操作時間で決める"""
         try:
-            from ..services.funya_state import get_funya_state_service
+            from ...services.funya_state import get_funya_state_service
 
             status = get_funya_state_service().get_status()
             if status.get("watching"):
@@ -117,7 +119,10 @@ class WatcherService:
             ),
             strong_diff_multiplier=self._settings.WATCHER_STRONG_DIFF_MULTIPLIER,
             reenqueue_cooldown_sec=self._settings.WATCHER_REENQUEUE_COOLDOWN_SEC,
+            verbose_log=self._settings.WATCHER_VERBOSE_LOG,
         )
+        self._screen_watcher = screen
+
         window = WindowWatcher(
             dispatch=self._dispatch,
             on_title_update=self._set_window_title,
@@ -134,7 +139,8 @@ class WatcherService:
             f"WatcherService 起動: threshold={self._settings.WATCHER_SCREEN_DIFF_THRESHOLD}, "
             f"active={self._settings.WATCHER_ACTIVE_INTERVAL_SEC}s, "
             f"idle={self._settings.WATCHER_IDLE_INTERVAL_SEC}s, "
-            f"funya={self._settings.WATCHER_FUNYA_INTERVAL_SEC}s"
+            f"funya={self._settings.WATCHER_FUNYA_INTERVAL_SEC}s, "
+            f"verbose_log={self._settings.WATCHER_VERBOSE_LOG}"
         )
 
     async def stop(self) -> None:
@@ -148,9 +154,28 @@ class WatcherService:
         except Exception as e:
             logger.warning(f"WatcherService 停止中の gather でエラー: {e}")
         self._tasks = []
+        self._screen_watcher = None
         logger.info("WatcherService 停止完了")
 
     def get_status(self) -> dict[str, Any]:
+        snap = self.get_screen_snapshot()
+        screen_summary = (
+            {
+                "state": snap["state"],
+                "calm_streak": snap["calm_streak"],
+                "seconds_since_last_enqueue": snap["seconds_since_last_enqueue"],
+                "last_reason": (
+                    snap["last_decision"]["reason"]
+                    if snap["last_decision"]
+                    else None
+                ),
+                "frame_count": snap["frame_count"],
+                "enqueue_count": snap["enqueue_count"],
+                "skip_count": snap["skip_count"],
+            }
+            if snap
+            else None
+        )
         return {
             "running": self._running,
             "initialized": True,
@@ -166,6 +191,7 @@ class WatcherService:
             "idle_interval_sec": self._settings.WATCHER_IDLE_INTERVAL_SEC,
             "funya_interval_sec": self._settings.WATCHER_FUNYA_INTERVAL_SEC,
             "uptime_sec": time.time() - self._started_at if self._running else 0.0,
+            "screen_watcher": screen_summary,
         }
 
     def get_latest_frame_jpeg(self, quality: int = 70) -> Optional[bytes]:
@@ -183,6 +209,24 @@ class WatcherService:
         except Exception as e:
             logger.error(f"JPEG エンコードに失敗: {e}")
             return None
+
+    def get_screen_snapshot(self) -> Optional[dict[str, Any]]:
+        """ScreenWatcher の内部スナップショットを取得 (診断用)"""
+        if self._screen_watcher is None:
+            return None
+        return self._screen_watcher.get_snapshot()
+
+    def get_recent_decisions(self, limit: int = 50) -> list[dict[str, Any]]:
+        """直近の判定履歴を取得 (診断用)"""
+        if self._screen_watcher is None:
+            return []
+        return self._screen_watcher.get_recent_decisions(limit)
+
+    def get_last_diff_jpeg(self, quality: int = 70) -> Optional[bytes]:
+        """直前の差分画像を JPEG で取得 (診断用、白いほど差分大)"""
+        if self._screen_watcher is None:
+            return None
+        return self._screen_watcher.get_last_diff_jpeg(quality)
 
     @property
     def queue(self) -> asyncio.Queue[WatcherEvent]:
