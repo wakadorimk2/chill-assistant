@@ -7,7 +7,7 @@
     "start": "electron .",
     "dev": "vite --port 5174",
     "dev:frontend": "vite --port 5174 --host --force",
-    "dev:backend": "cross-env DEBUG_MODE=true python -m uvicorn backend.main:app --reload --port 8001 --reload-exclude node_modules",
+    "dev:backend": "cross-env DEBUG_MODE=true .venv/Scripts/python.exe -m uvicorn backend.main:app --reload --port 8001 --reload-exclude node_modules",
     "dev:electron": "node scripts/dev-electron.js",
     "dev:all": "pnpm run dev:electron",
     "build": "vite build && node copy-preload.mjs",

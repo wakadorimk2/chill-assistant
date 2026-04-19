@@ -4,8 +4,16 @@
  * Pythonバックエンドを起動し、準備完了まで待機します 🐍
  */
 
+const path = require('path');
 const { spawn } = require('child_process');
 const { waitForEndpoint } = require('../utils/process-utils');
+
+// プロジェクトルートの .venv に入っている Python を優先的に使う
+// (システムの python が別バージョンを指していて uvicorn が無い問題を避けるため)
+const projectRoot = path.resolve(__dirname, '..', '..');
+const venvPython = process.platform === 'win32'
+  ? path.join(projectRoot, '.venv', 'Scripts', 'python.exe')
+  : path.join(projectRoot, '.venv', 'bin', 'python');
 
 /**
  * バックエンドサーバーを起動します
@@ -18,8 +26,8 @@ const startBackend = async (config) => {
 
   console.log(`🐈 Pythonバックエンドを起動しています... (ポート: ${port})`);
 
-  // バックエンド起動
-  const backendProcess = spawn('python', [
+  // バックエンド起動 (.venv の python を明示的に使う)
+  const backendProcess = spawn(venvPython, [
     '-m', 'uvicorn', 'backend.main:app', '--port', port
   ], {
     stdio: 'inherit',
