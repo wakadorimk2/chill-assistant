@@ -44,6 +44,15 @@ class Settings(BaseSettings):
 
     VOICE_COOLDOWN: float = 1.5
 
+    WATCHER_SCREEN_DIFF_THRESHOLD: float = 12.0
+    WATCHER_ACTIVE_INTERVAL_SEC: float = 3.0
+    WATCHER_IDLE_INTERVAL_SEC: float = 10.0
+    WATCHER_FUNYA_INTERVAL_SEC: float = 30.0
+    WATCHER_WINDOW_POLL_INTERVAL_SEC: float = 2.0
+    WATCHER_QUEUE_MAX_SIZE: int = 64
+    WATCHER_DIFF_RESIZE_W: int = 240
+    WATCHER_DIFF_RESIZE_H: int = 135
+
     VOICE_PRESETS: ClassVar[Dict[str, Dict[str, float]]] = {
         "通常": {"pitch": 0.0, "intonation": 1.0, "speed": 1.0},
         "にこにこ": {"pitch": 0.06, "intonation": 1.3, "speed": 1.05},

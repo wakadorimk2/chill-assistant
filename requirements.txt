@@ -37,3 +37,6 @@ python-dotenv>=1.0.1,<2.0
 
 # 非同期 HTTP (voicevox_starter の is_voicevox_ready で使用)
 aiohttp>=3.10,<4.0
+
+# Watcher (Step 2: フォアグラウンドウィンドウ監視)
+pywin32>=306; sys_platform == "win32"

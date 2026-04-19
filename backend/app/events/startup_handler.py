@@ -15,6 +15,13 @@ DISABLE_FUNYA_WATCHER = os.getenv("DISABLE_FUNYA_WATCHER", "0").lower() in (
     "yes",
 )
 
+# 画面 Watcher を無効化する環境フラグ
+DISABLE_SCREEN_WATCHER = os.getenv("DISABLE_SCREEN_WATCHER", "0").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
@@ -90,6 +97,22 @@ async def init_services() -> None:
                 logger.info("ふにゃ見守りモードを初期化して開始しました")
             except Exception as e:
                 logger.error(f"ふにゃ見守りモードの初期化中にエラーが発生: {e}")
+
+        # 画面 Watcher の初期化と開始
+        if DISABLE_SCREEN_WATCHER:
+            logger.info("WatcherService is disabled in this environment.")
+        else:
+            try:
+                from ..modules.watcher import WatcherService
+                from ..services.watcher_state import get_watcher_state_service
+
+                watcher_service = WatcherService(get_settings())
+                get_watcher_state_service().set_service(watcher_service)
+                await watcher_service.start()
+                logger.info("WatcherService を初期化して開始しました")
+            except Exception as e:
+                # funya と同方針: watcher の失敗で全体起動を止めない
+                logger.error(f"WatcherService の初期化中にエラー: {e}")
 
         # WebSocketマネージャーの初期化は自動的に行われます
         logger.info("各種サービスの初期化が完了しました")

@@ -90,6 +90,7 @@ def register_routers(app: FastAPI) -> None:
             health_router,
             ocr_router,
             voice_router,
+            watcher_router,
             websocket_router,
         )
 
@@ -98,6 +99,7 @@ def register_routers(app: FastAPI) -> None:
         app.include_router(voice_router)
         app.include_router(websocket_router)
         app.include_router(funya_router)
+        app.include_router(watcher_router)
 
         logger.info("🔄 ルーターを登録しました")
 

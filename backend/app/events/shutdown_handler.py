@@ -44,6 +44,17 @@ async def cleanup_resources() -> None:
     try:
         # 一時ファイルの削除など、必要に応じてクリーンアップ処理を実装
 
+        # 画面 Watcher の停止 (一括 gather より前に個別停止して race を回避)
+        try:
+            from ..services.watcher_state import get_watcher_state_service
+
+            watcher_service = get_watcher_state_service().get_service()
+            if watcher_service is not None:
+                await watcher_service.stop()
+                logger.info("WatcherService を停止しました")
+        except Exception as e:
+            logger.warning(f"WatcherService 停止中にエラー: {e}")
+
         # WebSocketの接続クローズ
         try:
             from ..ws.manager import manager
