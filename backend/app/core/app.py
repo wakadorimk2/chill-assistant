@@ -1,64 +1,74 @@
 """
 アプリケーション生成モジュール
 
-FastAPIアプリケーションの生成と初期化を行います
+FastAPI アプリケーションの生成と初期化を行う。
 """
 
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-# 設定のインポート
 from ..config import get_settings
-
-# カスタムロガーのインポート
 from .logger import setup_logger
 
-# ロガーの設定
 logger = setup_logger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI lifespan コンテキストマネージャ (startup / shutdown)"""
+    from ..events import shutdown_handler, startup_handler
+
+    logger.info("🚀 アプリケーションを起動しています...")
+    await startup_handler.on_startup()
+    logger.info("✅ アプリケーションの起動が完了しました")
+
+    try:
+        yield
+    finally:
+        logger.info("🔌 アプリケーションをシャットダウンしています...")
+        await shutdown_handler.on_shutdown()
+        logger.info("✅ アプリケーションのシャットダウンが完了しました")
 
 
 def create_application() -> FastAPI:
     """
-    FastAPIアプリケーションを作成して初期化
+    FastAPI アプリケーションを作成して初期化
 
     Returns:
-        FastAPI: 初期化されたFastAPIインスタンス
+        FastAPI: 初期化された FastAPI インスタンス
     """
     settings = get_settings()
 
-    # FastAPI アプリケーションの作成
     app = FastAPI(
-        title="7DTD秘書たんAPI",
-        description="7 Days to Die と連携する秘書たんシステムのAPI",
+        title="秘書たん API",
+        description="ローカル Vision LLM と連携する秘書たんシステム API",
         version="1.0.0",
+        lifespan=lifespan,
     )
 
-    # CORSミドルウェアの追加
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # 開発環境では"*"を使用。本番環境では適切に制限する
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
-    # 静的ファイルを提供するディレクトリを設定
     try:
         for mount_path, directory in [
             ("/static", settings.STATIC_DIR),
             ("/temp", settings.TEMP_DIR),
             ("/shared", settings.SHARED_DIR),
         ]:
-            # ディレクトリの存在確認
             dir_path = Path(directory)
             if not dir_path.exists():
                 dir_path.mkdir(parents=True, exist_ok=True)
                 logger.info(f"📁 静的ファイルディレクトリを作成: {directory}")
 
-            # マウント
             app.mount(
                 mount_path, StaticFiles(directory=directory), name=mount_path.strip("/")
             )
@@ -67,24 +77,14 @@ def create_application() -> FastAPI:
     except Exception as e:
         logger.error(f"❌ 静的ファイルのマウント中にエラー: {e}")
 
-    # ルーターの読み込みと登録
     register_routers(app)
-
-    # イベントハンドラの登録
-    register_event_handlers(app)
 
     return app
 
 
 def register_routers(app: FastAPI) -> None:
-    """
-    ルーターを登録
-
-    Args:
-        app: FastAPIアプリケーションインスタンス
-    """
+    """ルーターを登録"""
     try:
-        # 各種ルーターのインポート
         from ..routers import (
             funya_router,
             health_router,
@@ -93,7 +93,6 @@ def register_routers(app: FastAPI) -> None:
             websocket_router,
         )
 
-        # ルーターの登録
         app.include_router(health_router)
         app.include_router(ocr_router)
         app.include_router(voice_router)
@@ -104,29 +103,3 @@ def register_routers(app: FastAPI) -> None:
 
     except Exception as e:
         logger.error(f"❌ ルーターの登録中にエラー: {e}")
-
-
-def register_event_handlers(app: FastAPI) -> None:
-    """
-    イベントハンドラを登録
-
-    Args:
-        app: FastAPIアプリケーションインスタンス
-    """
-    from ..events import shutdown_handler, startup_handler
-
-    # スタートアップイベント
-    @app.on_event("startup")
-    async def startup_event():
-        """アプリケーション起動時の処理"""
-        logger.info("🚀 アプリケーションを起動しています...")
-        await startup_handler.on_startup()
-        logger.info("✅ アプリケーションの起動が完了しました")
-
-    # シャットダウンイベント
-    @app.on_event("shutdown")
-    async def shutdown_event():
-        """アプリケーション終了時の処理"""
-        logger.info("🔌 アプリケーションをシャットダウンしています...")
-        await shutdown_handler.on_shutdown()
-        logger.info("✅ アプリケーションのシャットダウンが完了しました")

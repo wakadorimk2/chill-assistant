@@ -5,6 +5,7 @@ VOICEVOXエンジンの自動起動と終了を管理します
 """
 
 import logging
+import os
 import subprocess
 import threading
 import time
@@ -76,7 +77,10 @@ def start_voicevox_engine() -> bool:
         if not voicevox_engine_path:
             # 実行可能ファイルを探す
             default_paths = [
-                # Windows環境のパス例
+                # LOCALAPPDATA 配下のユーザーインストール版 (新しいインストーラのデフォルト)
+                Path(os.path.expandvars(r"%LOCALAPPDATA%\Programs\VOICEVOX\vv-engine\run.exe")),
+                Path(os.path.expandvars(r"%LOCALAPPDATA%\Programs\VOICEVOX\VOICEVOX.exe")),
+                # システム全体にインストールされている場合
                 Path(r"C:\Program Files\VOICEVOX\VOICEVOX.exe"),
                 Path(r"C:\Program Files (x86)\VOICEVOX\VOICEVOX.exe"),
                 Path(r"C:\VOICEVOX\run.exe"),
