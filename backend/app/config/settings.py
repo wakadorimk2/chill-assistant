@@ -58,6 +58,20 @@ class Settings(BaseSettings):
     # True で skip も INFO レベルでログ出力 (実機診断用)
     WATCHER_VERBOSE_LOG: bool = False
 
+    # Companion (Step 3) — LM Studio 経由 Vision LLM
+    COMPANION_ENABLED: bool = True
+    COMPANION_MODEL: str = "qwen3-vl-8b-instruct"
+    COMPANION_BASE_URL: str = "http://localhost:1234/v1"
+    COMPANION_API_KEY: str = "lm-studio"
+    COMPANION_MAX_TOKENS: int = 80
+    COMPANION_TEMPERATURE: float = 0.7
+    COMPANION_TIMEOUT_SEC: float = 60.0
+    # watcher event 駆動発話の最小間隔 (秒)。LLM レイテンシ 5〜8s を考慮
+    COMPANION_RATE_LIMIT_SEC: float = 60.0
+    COMPANION_JPEG_QUALITY: int = 70
+    # 起動時に 1x1 ダミー画像で warm-up を走らせる (KV cache 冷スタート消化)
+    COMPANION_WARMUP_ON_LOAD: bool = True
+
     VOICE_PRESETS: ClassVar[Dict[str, Dict[str, float]]] = {
         "通常": {"pitch": 0.0, "intonation": 1.0, "speed": 1.0},
         "にこにこ": {"pitch": 0.06, "intonation": 1.3, "speed": 1.05},

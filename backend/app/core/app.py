@@ -18,6 +18,7 @@ logger = setup_logger(__name__)
 # モジュール別ロガーにもハンドラを付与して INFO 以上を uvicorn 画面に出す
 # (watcher / events / services 配下の子ロガーがプロパゲーション経由で拾える)
 setup_logger("backend.app.modules.watcher")
+setup_logger("backend.app.modules.companion")
 setup_logger("backend.app.events")
 setup_logger("backend.app.services")
 
@@ -91,6 +92,7 @@ def register_routers(app: FastAPI) -> None:
     """ルーターを登録"""
     try:
         from ..routers import (
+            companion_router,
             funya_router,
             health_router,
             ocr_router,
@@ -105,6 +107,7 @@ def register_routers(app: FastAPI) -> None:
         app.include_router(websocket_router)
         app.include_router(funya_router)
         app.include_router(watcher_router)
+        app.include_router(companion_router)
 
         logger.info("🔄 ルーターを登録しました")
 

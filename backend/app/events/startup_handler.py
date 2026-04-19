@@ -22,6 +22,13 @@ DISABLE_SCREEN_WATCHER = os.getenv("DISABLE_SCREEN_WATCHER", "0").lower() in (
     "yes",
 )
 
+# Companion (Vision LLM) を無効化する環境フラグ
+DISABLE_COMPANION = os.getenv("DISABLE_COMPANION", "0").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 # ロガーの設定
 logger = logging.getLogger(__name__)
 
@@ -113,6 +120,48 @@ async def init_services() -> None:
             except Exception as e:
                 # funya と同方針: watcher の失敗で全体起動を止めない
                 logger.error(f"WatcherService の初期化中にエラー: {e}")
+
+        # Companion (Step 3) の初期化と開始 (watcher の後)
+        settings = get_settings()
+        if DISABLE_COMPANION or not settings.COMPANION_ENABLED:
+            logger.info("CompanionService is disabled in this environment.")
+        else:
+            try:
+                from ..modules.companion import Companion, CompanionService
+                from ..services.companion_state import (
+                    get_companion_state_service,
+                )
+                from ..services.watcher_state import get_watcher_state_service
+
+                watcher_ref = get_watcher_state_service().get_service()
+                if watcher_ref is None:
+                    logger.warning(
+                        "CompanionService 起動スキップ: WatcherService が未起動"
+                    )
+                else:
+                    companion = Companion(
+                        model=settings.COMPANION_MODEL,
+                        base_url=settings.COMPANION_BASE_URL,
+                        api_key=settings.COMPANION_API_KEY,
+                        max_tokens=settings.COMPANION_MAX_TOKENS,
+                        temperature=settings.COMPANION_TEMPERATURE,
+                        timeout_sec=settings.COMPANION_TIMEOUT_SEC,
+                        jpeg_quality=settings.COMPANION_JPEG_QUALITY,
+                    )
+                    await companion.load(
+                        warmup=settings.COMPANION_WARMUP_ON_LOAD
+                    )
+                    companion_service = CompanionService(
+                        companion=companion,
+                        watcher=watcher_ref,
+                        settings=settings,
+                    )
+                    get_companion_state_service().set_service(companion_service)
+                    await companion_service.start()
+                    logger.info("CompanionService を初期化して開始しました")
+            except Exception as e:
+                # watcher と同方針: companion の失敗で全体起動を止めない
+                logger.error(f"CompanionService の初期化中にエラー: {e}")
 
         # WebSocketマネージャーの初期化は自動的に行われます
         logger.info("各種サービスの初期化が完了しました")

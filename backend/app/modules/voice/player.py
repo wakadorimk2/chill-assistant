@@ -6,6 +6,7 @@
 
 import concurrent.futures
 import logging
+import sys
 import threading
 import time
 from typing import Dict, Optional, Tuple
@@ -71,7 +72,7 @@ def is_message_duplicate(
 
 def play_voice(wav_path: str) -> None:
     """
-    音声ファイルを再生する
+    音声ファイルを再生する (同期、executor ワーカ経由で非同期化される想定)
 
     Args:
         wav_path: WAVファイルのパス
@@ -80,8 +81,19 @@ def play_voice(wav_path: str) -> None:
     with voice_lock:
         audio_playing = True
         try:
-            # 音声再生の実装
-            pass
+            if sys.platform == "win32":
+                # Windows 標準ライブラリ、追加依存なし
+                import winsound
+
+                winsound.PlaySound(wav_path, winsound.SND_FILENAME)
+            else:
+                # フォールバック: pydub (requirements.txt で入れてある)
+                from pydub import AudioSegment
+                from pydub.playback import play as _pydub_play
+
+                _pydub_play(AudioSegment.from_wav(wav_path))
+        except Exception as e:
+            logger.error(f"音声再生エラー (path={wav_path}): {e}")
         finally:
             audio_playing = False
 

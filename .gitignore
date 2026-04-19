@@ -40,6 +40,9 @@ __pycache__/
 venv/
 .venv/
 
+# VOICEVOX 音声キャッシュ (backend/app/modules/voice/cache.py が Step 3 以降自動生成)
+assets/sounds/generated/
+
 # バックアップファイル
 *.bak
 *.backup

@@ -2,6 +2,7 @@
 ルーターモジュールパッケージ
 """
 
+from .companion import router as companion_router
 from .funya import router as funya_router
 from .health import router as health_router
 from .ocr_router import router as ocr_router
@@ -16,4 +17,5 @@ __all__ = [
     "ocr_router",
     "funya_router",
     "watcher_router",
+    "companion_router",
 ]
