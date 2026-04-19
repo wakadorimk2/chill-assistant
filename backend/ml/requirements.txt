@@ -1,6 +1,0 @@
-fastai==2.7.12
-torch>=1.12.0
-torchvision>=0.13.0
-matplotlib>=3.5.0
-numpy>=1.21.0
-pillow>=8.3.0 
