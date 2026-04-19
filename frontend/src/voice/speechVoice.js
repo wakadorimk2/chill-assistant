@@ -324,7 +324,7 @@ export async function checkVoicevoxConnection() {
         const apiBaseUrl = 'http://127.0.0.1:8001';
 
         // 接続確認用のエンドポイントを呼び出す
-        const response = await fetch(`${apiBaseUrl}/api/voice/status`, {
+        const response = await fetch(`${apiBaseUrl}/api/voice/check-connection`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json'
