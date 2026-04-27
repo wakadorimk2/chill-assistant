@@ -39,10 +39,18 @@ class Settings(BaseSettings):
     IMAGES_DIR: str = str(BASE_DIR.parent / "assets" / "images")
 
     VOICEVOX_HOST: str = "http://127.0.0.1:50021"
-    VOICEVOX_SPEAKER: int = 0
+    # あんこもん / ノーマル. つよつよ=114, よわよわ=115, けだるげ=116, ささやき=117
+    VOICEVOX_SPEAKER: int = 113
     VOICEVOX_ENGINE_PATH: str = ""
 
     VOICE_COOLDOWN: float = 1.5
+
+    # 発話自然化 (VOICEVOX audio_query 拡張) — preset 値が無いときの既定値
+    # 発話前後の無音 (秒). "ぶつ切り感" を抑える
+    VOICE_PRE_PHONEME_LENGTH: float = 0.15
+    VOICE_POST_PHONEME_LENGTH: float = 0.2
+    # 句読点ポーズの倍率 (1.0 が VOICEVOX 既定). 棒読み感の緩和
+    VOICE_PAUSE_LENGTH_SCALE: float = 1.2
 
     WATCHER_SCREEN_DIFF_THRESHOLD: float = 12.0
     WATCHER_ACTIVE_INTERVAL_SEC: float = 3.0
@@ -91,15 +99,17 @@ class Settings(BaseSettings):
     SPEECH_VOICEVOX_READY_RETRIES: int = 3
     SPEECH_VOICEVOX_READY_INTERVAL_SEC: float = 1.0
 
+    # chill 秘書たん路線: intonation は 1.2 を上限に揃え、pre/post/pause を持たせる
+    # pre_phoneme / post_phoneme は秒, pause_scale は VOICEVOX 既定 1.0 を基準とした倍率
     VOICE_PRESETS: ClassVar[Dict[str, Dict[str, float]]] = {
-        "通常": {"pitch": 0.0, "intonation": 1.0, "speed": 1.0},
-        "にこにこ": {"pitch": 0.06, "intonation": 1.3, "speed": 1.05},
-        "警戒・心配": {"pitch": -0.03, "intonation": 0.9, "speed": 0.95},
-        "びっくり": {"pitch": 0.12, "intonation": 1.5, "speed": 1.2},
-        "やさしい": {"pitch": -0.06, "intonation": 1.1, "speed": 0.9},
-        "眠そう": {"pitch": -0.09, "intonation": 0.8, "speed": 0.8},
-        "不安・怯え": {"pitch": -0.05, "intonation": 0.85, "speed": 0.9},
-        "疑問・思案": {"pitch": -0.01, "intonation": 1.1, "speed": 0.9},
+        "通常":      {"pitch":  0.00, "intonation": 1.00, "speed": 0.98, "pre_phoneme": 0.15, "post_phoneme": 0.20, "pause_scale": 1.20},
+        "にこにこ":  {"pitch":  0.04, "intonation": 1.15, "speed": 1.02, "pre_phoneme": 0.12, "post_phoneme": 0.18, "pause_scale": 1.15},
+        "警戒・心配": {"pitch": -0.03, "intonation": 0.95, "speed": 0.95, "pre_phoneme": 0.18, "post_phoneme": 0.22, "pause_scale": 1.30},
+        "びっくり":  {"pitch":  0.08, "intonation": 1.20, "speed": 1.10, "pre_phoneme": 0.08, "post_phoneme": 0.18, "pause_scale": 1.10},
+        "やさしい":  {"pitch": -0.04, "intonation": 1.05, "speed": 0.92, "pre_phoneme": 0.18, "post_phoneme": 0.24, "pause_scale": 1.30},
+        "眠そう":    {"pitch": -0.08, "intonation": 0.85, "speed": 0.85, "pre_phoneme": 0.22, "post_phoneme": 0.28, "pause_scale": 1.40},
+        "不安・怯え": {"pitch": -0.05, "intonation": 0.90, "speed": 0.92, "pre_phoneme": 0.20, "post_phoneme": 0.24, "pause_scale": 1.30},
+        "疑問・思案": {"pitch": -0.01, "intonation": 1.05, "speed": 0.92, "pre_phoneme": 0.18, "post_phoneme": 0.22, "pause_scale": 1.30},
     }
 
     PRESET_SOUNDS: ClassVar[Dict[str, str]] = {

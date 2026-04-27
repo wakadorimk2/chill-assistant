@@ -12,6 +12,7 @@ import time
 from typing import Any, Optional
 
 from ..config import Settings
+from ..modules.voice.normalize import soften_punctuation
 from ..modules.voice.player import is_message_duplicate
 from ..modules.voice.voicevox_starter import is_voicevox_ready
 from ..ws.manager import manager
@@ -181,17 +182,29 @@ class SpeechConsumer:
         )
         speaker_id = self._settings.VOICEVOX_SPEAKER
 
+        # VOICEVOX のポーズ解析が効くように軽く句読点を補完
+        speak_text = soften_punctuation(text)
+
         try:
             # 重複判定は consumer で済ませているので speak 側は force=True
             await asyncio.to_thread(
                 speak,
-                text,
+                speak_text,
                 speaker_id,
                 float(preset.get("speed", 1.0)),
                 float(preset.get("pitch", 0.0)),
                 float(preset.get("intonation", 1.0)),
                 1.0,
                 True,
+                float(preset.get(
+                    "pre_phoneme", self._settings.VOICE_PRE_PHONEME_LENGTH
+                )),
+                float(preset.get(
+                    "post_phoneme", self._settings.VOICE_POST_PHONEME_LENGTH
+                )),
+                float(preset.get(
+                    "pause_scale", self._settings.VOICE_PAUSE_LENGTH_SCALE
+                )),
             )
         except Exception as e:
             logger.error(
@@ -200,6 +213,7 @@ class SpeechConsumer:
             )
 
         try:
+            # フロント側は元テキストを表示 (吹き出し UI に「。」を強制付与しない)
             await manager.broadcast(
                 {
                     "type": "speak",
