@@ -3,33 +3,21 @@
  * ふにゃ見守りモード時の吹き出し表示を制御するモジュール
  */
 
-import { getFunyaStatus } from '../../core/apiClient.js';
 import { logDebug } from '../../core/logger.js';
-import { speak } from '../../emotion/speechManager.js';
 
-// 設定値
-const POLLING_INTERVAL = 30000; // 5秒ごとにステータスをチェック
+// 2026-04-27: backend funya_watcher が SpeechBus 経由で発話・broadcast するため
+// frontend 側の自前ポーリング + 自前メッセージリスト + speak() 呼び出しは廃止。
+// 吹き出し UI は WS の {type:"speak"} 受信時に showFunyaBubble() を直接叩く形になった。
+
 const MESSAGES = [
     '……ふにゃ？ だいじょうぶ？',
-    '集中してるのかな？',
     'ひとやすみ、しよっか🐈️',
-    '長い時間がんばってるね✨',
-    'お疲れ様、少し休憩してみる？',
-    'ふにゃ〜、元気ある？💫'
 ];
 
 // 状態管理
-let isWatching = false;
 let bubbleElement = null;
 let textElement = null;
-let pollingInterval = null;
 let timeout = null; // 自動非表示タイマー用
-
-// 音声再生済みフラグ (吹き出し表示と音声再生の分離のため)
-let voicePlayedForCurrentBubble = false;
-
-// 発話処理中フラグ（無限ループ防止用）
-let isSpeakingInProgress = false;
 
 // 最後に表示したテキストとタイムスタンプ（重複防止用）
 let lastDisplayedText = '';
@@ -104,64 +92,19 @@ function updateFunyaBubblePosition() {
     }
 }
 
-/**
- * 吹き出しの表示状態を更新
- * @param {boolean} watching 見守り中かどうか
- * @param {boolean} withVoice テキストを音声で読み上げるかどうか
- */
-function updateBubbleVisibility(watching, withVoice = true) {
-    if (!bubbleElement) {
-        bubbleElement = createBubbleElement();
-        textElement = document.getElementById('funyaText');
-    }
-
-    // 状態が変わった場合のみ処理
-    if (watching !== isWatching) {
-        isWatching = watching;
-
-        if (isWatching) {
-            // 表示する場合はメッセージをランダムに設定
-            const message = getRandomMessage();
-            textElement.innerHTML = `<span class="funya-icon">🐾</span>${message}`;
-
-            // クラスを変更して表示
-            bubbleElement.classList.remove('hide');
-            bubbleElement.classList.add('show');
-
-            // 立ち絵の位置に合わせて吹き出しの位置を調整
-            updateFunyaBubblePosition();
-
-            logDebug('ふにゃ吹き出しを表示: ' + message);
-
-            // テキストを音声で読み上げる
-            if (withVoice && !voicePlayedForCurrentBubble) {
-                // 絵文字を除去してテキストだけを抽出
-                const plainText = message.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}]/gu, '').trim();
-                if (plainText) {
-                    speak(plainText); // speechManagerを使用
-                    voicePlayedForCurrentBubble = true;
-                    logDebug(`🔊 ふにゃ見守りメッセージを音声で再生: "${plainText}"`);
-                }
-            }
-        } else {
-            // 非表示
-            bubbleElement.classList.remove('show');
-            bubbleElement.classList.add('hide');
-            voicePlayedForCurrentBubble = false; // フラグをリセット
-            logDebug('ふにゃ吹き出しを非表示');
-        }
-    }
-}
+// updateBubbleVisibility はポーリング廃止と共に削除 (2026-04-27)。
+// 吹き出し表示は WS 経由で showFunyaBubble() を呼ぶ形になっている。
 
 /**
- * 任意のメッセージを表示する吹き出し
+ * 任意のメッセージを表示する吹き出し.
+ * 音声再生は backend SpeechConsumer (winsound) が担当するためここでは行わない.
  * @param {string} text 表示するテキスト
  * @param {number} duration 表示時間（ミリ秒）デフォルトは5000ms
- * @param {boolean} withVoice テキストを音声で読み上げるかどうか
- * @param {string} emotion 音声の感情（'normal', 'happy', 'sad', 'surprised'など）
+ * @param {boolean} _withVoice 互換のため受け取るが未使用 (backend が発話する)
+ * @param {string} _emotion 互換のため受け取るが未使用
  * @returns {HTMLElement} 吹き出し要素
  */
-export function showFunyaBubble(text, duration = 5000, withVoice = true, emotion = 'normal') {
+export function showFunyaBubble(text, duration = 5000, _withVoice = false, _emotion = 'normal') {
     // 重複防止：直近で同じテキストが表示されていたら無視する（5秒以内）
     const now = Date.now();
     if (text === lastDisplayedText && now - lastDisplayedTime < 5000) {
@@ -203,30 +146,6 @@ export function showFunyaBubble(text, duration = 5000, withVoice = true, emotion
 
     logDebug(`ふにゃ吹き出しを表示: ${displayText || 'ランダムメッセージ'}`);
 
-    // 音声再生は呼び出し元（speechBridge）に任せる
-    // 直接呼び出した場合のみここで音声再生する
-    if (withVoice && displayText && !voicePlayedForCurrentBubble && !isSpeakingInProgress) {
-        try {
-            // 発話処理中フラグをセット
-            isSpeakingInProgress = true;
-
-            // 絵文字を除去してテキストだけを抽出
-            const plainText = displayText.replace(/[\u{1F300}-\u{1F6FF}\u{1F900}-\u{1F9FF}]/gu, '').trim();
-            if (plainText) {
-                // speechManagerを使用して音声再生
-                speak(plainText);
-                voicePlayedForCurrentBubble = true;
-                logDebug(`🔊 ふにゃ吹き出しのテキストを音声で再生: "${plainText}"`);
-            }
-        } finally {
-            // 処理が終わったらフラグをリセット
-            setTimeout(() => {
-                isSpeakingInProgress = false;
-                logDebug('🔓 発話処理フラグをリセットしました');
-            }, 500);
-        }
-    }
-
     // 指定時間後に自動的に非表示（強制表示モードでない場合のみ）
     if (!keepBubbleVisibleFlag) {
         timeout = setTimeout(() => {
@@ -252,7 +171,6 @@ export function hideFunyaBubble() {
     if (bubbleElement) {
         bubbleElement.classList.remove('show');
         bubbleElement.classList.add('hide');
-        voicePlayedForCurrentBubble = false; // フラグをリセット
         logDebug('ふにゃ吹き出しを非表示');
     }
 
@@ -263,38 +181,12 @@ export function hideFunyaBubble() {
 }
 
 /**
- * ステータス確認と吹き出し制御
- * @param {boolean} withVoice テキストを音声で読み上げるかどうか
- */
-async function checkFunyaStatus(withVoice = true) {
-    try {
-        const status = await getFunyaStatus();
-        updateBubbleVisibility(status.watching, withVoice);
-    } catch (error) {
-        logDebug('ふにゃステータス取得エラー:', error);
-        // エラー時は吹き出しを非表示
-        updateBubbleVisibility(false);
-    }
-}
-
-/**
- * ふにゃ見守りモードのポーリングを開始
+ * ふにゃ見守りモード初期化 (互換 API).
+ * 旧実装の自動ポーリング & 自動発話は backend SpeechBus 経由に置き換わったため
+ * 立ち絵位置監視のセットアップだけ残してある.
  */
 export function startFunyaWatchingMode() {
-    logDebug('ふにゃ見守りモードを開始');
-
-    // 初回実行
-    checkFunyaStatus();
-
-    // 既存のポーリングがあれば停止
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-    }
-
-    // ポーリングを開始
-    pollingInterval = setInterval(checkFunyaStatus, POLLING_INTERVAL);
-
-    // 立ち絵の位置変更を監視
+    logDebug('ふにゃ見守りモード初期化 (ポーリング無効、位置監視のみ)');
     setupPositionObserver();
 }
 
@@ -304,7 +196,7 @@ export function startFunyaWatchingMode() {
 function setupPositionObserver() {
     // ResizeObserverを追加し、画面サイズ変更時に吹き出しの位置を調整
     const resizeObserver = new ResizeObserver(() => {
-        if (isWatching || document.getElementById('funyaBubble')?.classList.contains('show')) {
+        if (document.getElementById('funyaBubble')?.classList.contains('show')) {
             updateFunyaBubblePosition();
         }
     });
@@ -315,7 +207,7 @@ function setupPositionObserver() {
         mutations.forEach((mutation) => {
             if (mutation.type === 'attributes' &&
                 (mutation.attributeName === 'style' || mutation.attributeName === 'class')) {
-                if (isWatching || document.getElementById('funyaBubble')?.classList.contains('show')) {
+                if (document.getElementById('funyaBubble')?.classList.contains('show')) {
                     updateFunyaBubblePosition();
                 }
             }
@@ -341,19 +233,11 @@ function setupPositionObserver() {
 }
 
 /**
- * ふにゃ見守りモードのポーリングを停止
+ * ふにゃ見守りモードのポーリングを停止 (互換 API、現状ノーオペ).
  */
 export function stopFunyaWatchingMode() {
-    logDebug('ふにゃ見守りモードを停止');
-
-    // ポーリングを停止
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-    }
-
-    // 吹き出しを非表示
-    updateBubbleVisibility(false);
+    logDebug('ふにゃ見守りモード停止 (no-op)');
+    hideFunyaBubble();
 }
 
 /**
@@ -379,8 +263,4 @@ export function allowBubbleHide() {
     logDebug('🔓 吹き出しの自動非表示を再有効化しました');
 }
 
-// アプリの起動時に自動的に開始
-document.addEventListener('DOMContentLoaded', () => {
-    logDebug('ふにゃ見守りモードを自動起動');
-    startFunyaWatchingMode();
-}); 
+// 旧 DOMContentLoaded 自動起動は廃止 (backend funya_watcher 側に集約)。

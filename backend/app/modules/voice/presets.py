@@ -85,42 +85,42 @@ def safe_speak_with_preset(
     pass
 
 
-# プリセット定義
+# プリセット定義 (chill 秘書たん路線 — intonation は 1.2 上限に揃える)
 VOICE_PRESETS: Dict[str, Dict[str, float]] = {
     "normal": {
-        "speed_scale": 1.0,
+        "speed_scale": 0.98,
         "pitch_scale": 0.0,
         "intonation_scale": 1.0,
         "volume_scale": 1.0,
     },
     "happy": {
-        "speed_scale": 1.1,
-        "pitch_scale": 0.05,
-        "intonation_scale": 1.2,
+        "speed_scale": 1.02,
+        "pitch_scale": 0.04,
+        "intonation_scale": 1.15,
         "volume_scale": 1.0,
     },
     "sad": {
-        "speed_scale": 0.9,
+        "speed_scale": 0.92,
         "pitch_scale": -0.05,
         "intonation_scale": 0.9,
         "volume_scale": 0.95,
     },
     "angry": {
-        "speed_scale": 1.15,
+        "speed_scale": 1.05,
         "pitch_scale": 0.0,
-        "intonation_scale": 1.3,
-        "volume_scale": 1.05,
+        "intonation_scale": 1.2,
+        "volume_scale": 1.0,
     },
     "surprised": {
-        "speed_scale": 1.2,
-        "pitch_scale": 0.1,
-        "intonation_scale": 1.4,
+        "speed_scale": 1.10,
+        "pitch_scale": 0.08,
+        "intonation_scale": 1.2,
         "volume_scale": 1.0,
     },
     "whisper": {
         "speed_scale": 0.9,
         "pitch_scale": -0.02,
-        "intonation_scale": 0.8,
+        "intonation_scale": 0.85,
         "volume_scale": 0.7,
     },
 }

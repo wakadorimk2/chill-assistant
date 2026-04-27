@@ -110,6 +110,9 @@ async def synthesize_direct(
     pitch: Optional[float] = None,
     intonation: Optional[float] = None,
     volume: Optional[float] = None,
+    pre_phoneme_length: Optional[float] = None,
+    post_phoneme_length: Optional[float] = None,
+    pause_length_scale: Optional[float] = None,
 ) -> Optional[bytes]:
     """
     VOICEVOXを使用してテキストを音声に変換し、音声データを直接返す（再生なし）
@@ -171,6 +174,12 @@ async def synthesize_direct(
             voice_params["intonationScale"] = intonation
         if volume is not None:
             voice_params["volumeScale"] = volume
+        if pre_phoneme_length is not None:
+            voice_params["prePhonemeLength"] = pre_phoneme_length
+        if post_phoneme_length is not None:
+            voice_params["postPhonemeLength"] = post_phoneme_length
+        if pause_length_scale is not None:
+            voice_params["pauseLengthScale"] = pause_length_scale
 
         # 音声合成の実行
         logger.debug(f"VOICEVOX 音声合成実行: {settings.VOICEVOX_HOST}/synthesis")
@@ -214,6 +223,9 @@ def speak(
     intonation: float = 1.0,
     volume: float = 1.0,
     force: bool = False,
+    pre_phoneme_length: Optional[float] = None,
+    post_phoneme_length: Optional[float] = None,
+    pause_length_scale: Optional[float] = None,
 ) -> Optional[str]:
     """
     VOICEVOXを使用してテキストを音声に変換し、再生する
@@ -226,6 +238,9 @@ def speak(
         intonation: イントネーション（1.0が標準）
         volume: 音量（1.0が標準）
         force: 強制再生フラグ
+        pre_phoneme_length: 発話前の無音 (秒). None で settings 既定
+        post_phoneme_length: 発話後の無音 (秒). None で settings 既定
+        pause_length_scale: 句読点ポーズ倍率. None で settings 既定
 
     Returns:
         str: 生成されたWAVファイルのパス、エラー時はNone
@@ -236,9 +251,27 @@ def speak(
         # 設定を取得
         settings = get_settings()
 
-        # 音声キャッシュをチェック
-        cache_path = get_voice_cache_path(text, speaker_id)
-        if is_voice_cached(text, speaker_id):
+        if pre_phoneme_length is None:
+            pre_phoneme_length = settings.VOICE_PRE_PHONEME_LENGTH
+        if post_phoneme_length is None:
+            post_phoneme_length = settings.VOICE_POST_PHONEME_LENGTH
+        if pause_length_scale is None:
+            pause_length_scale = settings.VOICE_PAUSE_LENGTH_SCALE
+
+        # 音声キャッシュをチェック (キーはパラメータ全体に依存させる)
+        cache_key = _voice_cache_key(
+            text,
+            speaker_id,
+            speed,
+            pitch,
+            intonation,
+            volume,
+            pre_phoneme_length,
+            post_phoneme_length,
+            pause_length_scale,
+        )
+        cache_path = get_voice_cache_path(cache_key, speaker_id)
+        if is_voice_cached(cache_key, speaker_id):
             logger.info(f"キャッシュから音声を再生: {cache_path}")
             play_voice_async(cache_path)
             return cache_path
@@ -265,6 +298,9 @@ def speak(
         audio_query["pitchScale"] = pitch
         audio_query["intonationScale"] = intonation
         audio_query["volumeScale"] = volume
+        audio_query["prePhonemeLength"] = pre_phoneme_length
+        audio_query["postPhonemeLength"] = post_phoneme_length
+        audio_query["pauseLengthScale"] = pause_length_scale
 
         # 型アノテーション対応のためのキャスト
         synthesis_params: Dict[str, int] = {"speaker": speaker_id}
@@ -279,7 +315,7 @@ def speak(
         response.raise_for_status()
 
         # キャッシュに保存
-        save_result = save_to_cache(text, response.content, speaker_id)
+        save_result = save_to_cache(cache_key, response.content, speaker_id)
         if save_result:
             cache_path = save_result
 
@@ -292,3 +328,22 @@ def speak(
     except Exception as e:
         logger.error(f"音声合成エラー: {e}")
         return None
+
+
+def _voice_cache_key(
+    text: str,
+    speaker_id: int,
+    speed: float,
+    pitch: float,
+    intonation: float,
+    volume: float,
+    pre_phoneme: float,
+    post_phoneme: float,
+    pause_scale: float,
+) -> str:
+    """speak の合成パラメータを含めたキャッシュ識別キー."""
+    return (
+        f"{text}|sp{speaker_id}|s{speed:.3f}p{pitch:.3f}"
+        f"i{intonation:.3f}v{volume:.3f}"
+        f"pre{pre_phoneme:.3f}post{post_phoneme:.3f}ps{pause_scale:.3f}"
+    )
