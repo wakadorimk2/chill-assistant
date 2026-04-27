@@ -4,6 +4,7 @@
 FastAPI アプリケーションの生成と初期化を行う。
 """
 
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -12,15 +13,29 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from ..config import get_settings
-from .logger import setup_logger
+from .logger import setup_file_logging, setup_logger
 
 logger = setup_logger(__name__)
 # モジュール別ロガーにもハンドラを付与して INFO 以上を uvicorn 画面に出す
 # (watcher / events / services 配下の子ロガーがプロパゲーション経由で拾える)
 setup_logger("backend.app.modules.watcher")
 setup_logger("backend.app.modules.companion")
+setup_logger("backend.app.modules.funya_watcher")
+setup_logger("backend.app.modules.ws")
 setup_logger("backend.app.events")
 setup_logger("backend.app.services")
+
+# ファイルロガーは "backend.app" 親に 1 つだけ付ける (子は propagate で拾う)
+_settings_for_logging = get_settings()
+if _settings_for_logging.LOG_FILE_ENABLED:
+    _log_path = _settings_for_logging.LOG_FILE_PATH or os.path.join(
+        _settings_for_logging.LOGS_DIR, "backend.log"
+    )
+    setup_file_logging(
+        _log_path,
+        max_bytes=_settings_for_logging.LOG_FILE_MAX_BYTES,
+        backup_count=_settings_for_logging.LOG_FILE_BACKUP_COUNT,
+    )
 
 
 @asynccontextmanager
@@ -96,6 +111,7 @@ def register_routers(app: FastAPI) -> None:
             funya_router,
             health_router,
             ocr_router,
+            speech_router,
             voice_router,
             watcher_router,
             websocket_router,
@@ -108,6 +124,7 @@ def register_routers(app: FastAPI) -> None:
         app.include_router(funya_router)
         app.include_router(watcher_router)
         app.include_router(companion_router)
+        app.include_router(speech_router)
 
         logger.info("🔄 ルーターを登録しました")
 

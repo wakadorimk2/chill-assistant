@@ -5,12 +5,15 @@
 「ふにゃ見守りモード」を発動するモジュールです。
 """
 
+import logging
 import threading
 import time
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Union
 
 from pynput import keyboard, mouse
+
+logger = logging.getLogger(__name__)
 
 
 class FunyaWatcher:
@@ -103,13 +106,17 @@ class FunyaWatcher:
             # 無操作時間が閾値を超えた場合
             if inactive_time >= self.inactivity_threshold and not self.is_in_funya_mode:
                 self.is_in_funya_mode = True
-                # ランダムなメッセージを表示（現在はprint、後でWebSocket経由に変更予定）
-                message = self.messages[int(time.time()) % len(self.messages)]
-                print(message)
-
-                # コールバックがあれば実行
+                # 発話の組み立てと配信は callback 側 (speech_bus 経由) に委譲
+                logger.debug(
+                    f"funya mode 発動 (無操作 {int(inactive_time)}s)"
+                )
                 if self.on_enter_funya_mode:
-                    self.on_enter_funya_mode()
+                    try:
+                        self.on_enter_funya_mode()
+                    except Exception as e:
+                        logger.error(
+                            f"on_enter_funya_mode コールバック例外: {e}"
+                        )
 
             # 1秒待機
             time.sleep(1)
@@ -141,7 +148,7 @@ class FunyaWatcher:
         self._monitor_thread.daemon = True
         self._monitor_thread.start()
 
-        print("🐾 ふにゃ見守りモードを開始しました…")
+        logger.info("🐾 ふにゃ見守りモードを開始しました…")
 
     def stop(self) -> None:
         """監視を停止する"""
@@ -160,7 +167,7 @@ class FunyaWatcher:
         # スレッドの終了（デーモンなので明示的終了は不要）
         self._monitor_thread = None
 
-        print("🐾 ふにゃ見守りモードを終了しました…")
+        logger.info("🐾 ふにゃ見守りモードを終了しました…")
 
     def get_status(self) -> Dict[str, Union[bool, int]]:
         """

@@ -1,4 +1,9 @@
-"""CompanionService — watcher queue consumer + 発話ディスパッチ."""
+"""CompanionService — watcher queue consumer + speech_bus への発話投入.
+
+Step 4 で発話パスを `services.speech_bus` 経由に変更.
+LLM 呼び出し前に rate limit を判定して LLM コストを節約しつつ、
+最終的な VOICEVOX 発話 + WebSocket broadcast は SpeechConsumer 側に委譲する.
+"""
 
 from __future__ import annotations
 
@@ -11,7 +16,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from ...config import Settings
-from ...ws.manager import manager
+from ...services.speech_bus import SpeechRequest, get_speech_bus
 from .runtime import Companion
 
 if TYPE_CHECKING:
@@ -22,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class CompanionService:
-    """watcher の WatcherEvent を consume して LLM → VOICEVOX の一連を束ねる."""
+    """watcher の WatcherEvent を consume して LLM → speech_bus に流す."""
 
     def __init__(
         self,
@@ -98,6 +103,7 @@ class CompanionService:
                 )
 
     async def _handle_event(self, event: "WatcherEvent") -> None:
+        # LLM コスト節約のため event 受領時点で rate limit を先判定
         now = time.time()
         rate_limit = self._settings.COMPANION_RATE_LIMIT_SEC
         if (
@@ -135,47 +141,23 @@ class CompanionService:
             return
 
         logger.info(
-            f"companion speak: '{text}' (latency={latency}s, len={len(text)})"
+            f"companion enqueue: '{text}' (latency={latency}s, len={len(text)})"
         )
-        await self._dispatch_speech(text, event)
+        await self._enqueue_speech(text, event)
         self._last_speak_ts = time.time()
 
-    async def _dispatch_speech(self, text: str, event: "WatcherEvent") -> None:
-        """生成テキストを VOICEVOX 発話 + WebSocket broadcast に流す."""
-        # 循環 import を避けるため関数内で import
-        from ..voice.engine import speak
-
-        preset = self._settings.VOICE_PRESETS.get("通常", {})
-        speaker_id = self._settings.VOICEVOX_SPEAKER
-
-        try:
-            await asyncio.to_thread(
-                speak,
-                text,
-                speaker_id,
-                float(preset.get("speed", 1.0)),
-                float(preset.get("pitch", 0.0)),
-                float(preset.get("intonation", 1.0)),
-                1.0,
-                False,
+    async def _enqueue_speech(self, text: str, event: "WatcherEvent") -> None:
+        """生成テキストを speech_bus に投入 (実際の発話は SpeechConsumer 側)."""
+        bus = get_speech_bus()
+        await bus.put(
+            SpeechRequest(
+                text=text,
+                source="companion",
+                emotion="通常",
+                rate_limit_sec=self._settings.COMPANION_RATE_LIMIT_SEC,
+                meta={"source_event": event.to_payload()},
             )
-        except Exception as e:
-            logger.error(f"companion speak 例外: {type(e).__name__}: {e}")
-
-        try:
-            await manager.broadcast(
-                {
-                    "type": "companion_speak",
-                    "data": {
-                        "text": text,
-                        "emotion": "通常",
-                        "ts": time.time(),
-                        "source_event": event.to_payload(),
-                    },
-                }
-            )
-        except Exception as e:
-            logger.error(f"companion broadcast 例外: {type(e).__name__}: {e}")
+        )
 
     async def generate_once(
         self,
@@ -190,22 +172,18 @@ class CompanionService:
 
         spoken = False
         if text and speak_voice:
-            from ..voice.engine import speak
-
-            preset = self._settings.VOICE_PRESETS.get("通常", {})
-            try:
-                await asyncio.to_thread(
-                    speak,
-                    text,
-                    self._settings.VOICEVOX_SPEAKER,
-                    float(preset.get("speed", 1.0)),
-                    float(preset.get("pitch", 0.0)),
-                    float(preset.get("intonation", 1.0)),
-                    1.0,
-                    True,
+            bus = get_speech_bus()
+            ok = await bus.put(
+                SpeechRequest(
+                    text=text,
+                    source="companion",
+                    emotion="通常",
+                    bypass_rate_limit=True,
+                    message_type="speech_companion_debug",
+                    meta={"debug": True, "user_context": user_context[:80]},
                 )
-                spoken = True
+            )
+            spoken = ok
+            if ok:
                 self._last_speak_ts = time.time()
-            except Exception as e:
-                logger.error(f"debug-speak 発話例外: {type(e).__name__}: {e}")
         return text, latency, spoken

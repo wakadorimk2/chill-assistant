@@ -61,9 +61,9 @@ async def debug_speak(
             status_code=400, detail=f"image load failed: {e}"
         ) from e
 
-    text, latency, spoken = await service.generate_once(
+    text, latency, queued = await service.generate_once(
         frame,
         user_context or "この画面について一言お願い。",
         speak_voice=speak_voice,
     )
-    return {"text": text, "latency_sec": latency, "spoken": spoken}
+    return {"text": text, "latency_sec": latency, "queued": queued}

@@ -72,6 +72,25 @@ class Settings(BaseSettings):
     # 起動時に 1x1 ダミー画像で warm-up を走らせる (KV cache 冷スタート消化)
     COMPANION_WARMUP_ON_LOAD: bool = True
 
+    # File logging (Step 4 拡張) — 履歴をローテートファイルに残す
+    LOG_FILE_ENABLED: bool = True
+    # 空文字なら "{LOGS_DIR}/backend.log" を使う
+    LOG_FILE_PATH: str = ""
+    LOG_FILE_MAX_BYTES: int = 5_000_000
+    LOG_FILE_BACKUP_COUNT: int = 5
+
+    # Speech bus (Step 4) — 発話一元化 Queue + consumer
+    SPEECH_BUS_QUEUE_MAX_SIZE: int = 32
+    # source ごとの rate_limit を Request 側で指定しない場合のデフォルト
+    SPEECH_RATE_LIMIT_SEC: float = 60.0
+    # 同一テキスト重複抑制のクールダウン
+    SPEECH_DEDUP_COOLDOWN_SEC: float = 3.0
+    # consumer 起動直後のあいさつ。空文字で無効化
+    SPEECH_BOOT_GREETING: str = "今日の画面、見てるね。ふにゃっ"
+    # VOICEVOX 起動待ちのリトライ
+    SPEECH_VOICEVOX_READY_RETRIES: int = 3
+    SPEECH_VOICEVOX_READY_INTERVAL_SEC: float = 1.0
+
     VOICE_PRESETS: ClassVar[Dict[str, Dict[str, float]]] = {
         "通常": {"pitch": 0.0, "intonation": 1.0, "speed": 1.0},
         "にこにこ": {"pitch": 0.06, "intonation": 1.3, "speed": 1.05},

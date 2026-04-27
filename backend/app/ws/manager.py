@@ -32,9 +32,6 @@ class ConnectionManager:
         logger.info(
             f"WebSocket接続が確立されました。現在の接続数: {len(self.active_connections)}"
         )
-        print(
-            f"[BACKEND] WebSocket接続が確立されました。現在の接続数: {len(self.active_connections)}"
-        )
 
     def disconnect(self, websocket: WebSocket) -> None:
         """
@@ -43,9 +40,6 @@ class ConnectionManager:
         self.active_connections.remove(websocket)
         logger.info(
             f"WebSocket接続が切断されました。現在の接続数: {len(self.active_connections)}"
-        )
-        print(
-            f"[BACKEND] WebSocket接続が切断されました。現在の接続数: {len(self.active_connections)}"
         )
 
     async def send_personal_message(
@@ -56,30 +50,23 @@ class ConnectionManager:
         """
         try:
             await websocket.send_json(message)
-            logger.debug(f"個別メッセージを送信しました: {message}")
-            print(
-                f"[BACKEND] 個別WebSocketメッセージを送信: {message.get('type', 'unknown')}"
+            logger.debug(
+                f"個別メッセージを送信: {message.get('type', 'unknown')}"
             )
         except Exception as e:
             logger.error(f"個別メッセージ送信エラー: {e}")
-            print(f"[BACKEND] 個別WebSocketメッセージ送信エラー: {str(e)}")
 
     async def broadcast(self, message: Dict[str, Any]) -> None:
         """
         接続中の全クライアントにメッセージをブロードキャストする
         """
-        print(
-            f"[BACKEND] WebSocketブロードキャスト開始: "
-            f"{message.get('type', 'unknown')} - "
-            f"接続数: {len(self.active_connections)}"
-        )
-        if len(self.active_connections) == 0:
-            print(
-                f"[BACKEND] WebSocket接続がありません！"
-                f"ブロードキャストをスキップ: {message.get('type', 'unknown')}"
-            )
-            logger.warning(
-                f"WebSocket接続がありません。ブロードキャストをスキップ: {message}"
+        msg_type = message.get("type", "unknown")
+        n = len(self.active_connections)
+        logger.debug(f"WebSocket broadcast: type={msg_type} connections={n}")
+
+        if n == 0:
+            logger.debug(
+                f"WebSocket 接続なしのため broadcast skip: type={msg_type}"
             )
             return
 
@@ -87,15 +74,9 @@ class ConnectionManager:
             try:
                 await connection.send_json(message)
             except Exception as e:
-                logger.error(f"ブロードキャスト送信エラー: {e}")
-                print(f"[BACKEND] WebSocketブロードキャスト送信エラー: {str(e)}")
+                logger.error(f"ブロードキャスト送信エラー (type={msg_type}): {e}")
                 # エラーがあっても続行
                 continue
-
-        logger.debug(f"ブロードキャストメッセージを送信しました: {message}")
-        print(
-            f"[BACKEND] WebSocketブロードキャスト完了: {message.get('type', 'unknown')}"
-        )
 
 
 # シングルトンインスタンス
@@ -134,9 +115,5 @@ async def send_notification(
         },
     }
 
-    # 送信前にデバッグ出力
-    print(f"[BACKEND] 通知送信開始: {message_type} - {message}")
-
     await manager.broadcast(notification_data)
     logger.info(f"通知を送信: {message_type} - {message}")
-    print(f"[BACKEND] 通知送信完了: {message_type} - {message}")

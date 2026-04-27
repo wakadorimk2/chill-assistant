@@ -67,6 +67,22 @@ async def cleanup_resources() -> None:
         except Exception as e:
             logger.warning(f"WatcherService 停止中にエラー: {e}")
 
+        # SpeechConsumer (Step 4) の停止 — subscribers を止めた後に
+        try:
+            from ..services.speech_bus import reset_speech_bus
+            from ..services.speech_consumer_state import (
+                get_speech_consumer_state_service,
+            )
+
+            consumer = get_speech_consumer_state_service().get_service()
+            if consumer is not None:
+                await consumer.stop()
+                get_speech_consumer_state_service().clear_service()
+                logger.info("SpeechConsumer を停止しました")
+            reset_speech_bus()
+        except Exception as e:
+            logger.warning(f"SpeechConsumer 停止中にエラー: {e}")
+
         # WebSocketの接続クローズ
         try:
             from ..ws.manager import manager

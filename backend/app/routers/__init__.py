@@ -6,6 +6,7 @@ from .companion import router as companion_router
 from .funya import router as funya_router
 from .health import router as health_router
 from .ocr_router import router as ocr_router
+from .speech import router as speech_router
 from .voice import router as voice_router
 from .watcher import router as watcher_router
 from .websocket import router as websocket_router
@@ -18,4 +19,5 @@ __all__ = [
     "funya_router",
     "watcher_router",
     "companion_router",
+    "speech_router",
 ]

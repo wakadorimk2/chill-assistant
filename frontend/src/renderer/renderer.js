@@ -12,6 +12,7 @@ console.log('✅ styles.cssの読み込み完了');
 // ヘルパーモジュールをインポート
 import * as assistantUI from './assistantUI.js';
 import apiClient from '../core/apiClient.js';
+import wsClient from '../core/wsClient.js';
 import speechManager from '../emotion/speechManager.js';
 import { initAssistantUI } from './assistantUI.js';
 import { startFunyaWatchingMode, showFunyaBubble } from '../ui/helpers/funyaBubble.js';
@@ -164,6 +165,36 @@ async function initializeApp() {
 }
 
 /**
+ * backend (Step 4 SpeechConsumer) からの speak イベントを吹き出しに反映する.
+ * 音声再生は backend 側で完結しているため、ここでは UI 表示のみ行う.
+ */
+function setupBackendSpeechBridge() {
+  console.log('🔌 backend speech bridge を初期化します');
+
+  wsClient.on('speak', (payload) => {
+    const data = payload?.data || {};
+    const text = (data.text || '').trim();
+    if (!text) return;
+    const source = data.source || 'unknown';
+    console.log(`🎤 backend speak (source=${source}): ${text}`);
+
+    // テキスト長から表示時間を算出 (1 文字 ~150ms + 余裕 1.5s, 最低 3.5s)
+    const duration = Math.max(text.length * 150 + 1500, 3500);
+
+    if (window.funyaBubble && typeof window.funyaBubble.showFunyaBubble === 'function') {
+      // withVoice=false で音声二重再生を抑止 (backend 側で既に再生済 / 再生中)
+      window.funyaBubble.showFunyaBubble(text, duration, false, 'normal');
+    } else if (window.speechManager && typeof window.speechManager.speak === 'function') {
+      window.speechManager.speak(text);
+    } else {
+      console.warn('🎤 backend speak: 表示先が見つからないため log のみ');
+    }
+  });
+
+  wsClient.connect();
+}
+
+/**
  * レンダラープロセスの初期化
  */
 async function init() {
@@ -180,7 +211,8 @@ async function init() {
     console.log('🐈️ ふにゃ見守りモードを開始します');
     startFunyaWatchingMode();
 
-    // ここにアプリケーションの初期化コードを追加
+    // backend WebSocket からの speak を受信して吹き出しに表示
+    setupBackendSpeechBridge();
 
     console.log('✅ レンダラープロセスの初期化が完了しました');
   } catch (error) {
